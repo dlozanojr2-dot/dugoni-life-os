@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dugoni Life OS — Launch Control</title>
+
+<!-- ════════════════════════════════════════════════════════════════
+     ZONE: STYLE — all visual design lives here.
+     Design language: Apple/iOS — frosted glass over ambient orbs,
+     SF system type, circular checks, spring easing. Palette:
+     "UOP Dugoni meets Miami" — navy, pacific blue, sunset coral, cream.
+     Content layers: PERMANENT (mission, dock, links) · DAILY (growth
+     mix, rotates) · LIVE-ish (streak/since-yesterday from localStorage;
+     true live data arrives in Phase 3 per the platform roadmap).
+     ════════════════════════════════════════════════════════════════ -->
+<style>
+  :root {
+    --bg: #070b13;
+    --glass: rgba(19, 28, 47, 0.52);
+    --glass-hi: rgba(28, 40, 66, 0.60);
+    --edge: rgba(255, 255, 255, 0.075);
+    --edge-top: rgba(255, 255, 255, 0.14);
+    --text: #eaeef5;
+    --cream: #f4edde;
+    --muted: #96a3b8;
+    --faint: #7d8a9e;
+    --blue: #6cb2f2;
+    --coral: #ff9578;
+    --teal: #4ccab5;
+    --amber: #ecbd66;
+    --green: #72d69a;
+    --r-lg: 24px; --r-md: 16px; --r-sm: 12px;
+    --spring: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-lift: 0 16px 48px rgba(0, 0, 0, 0.45), 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { background: var(--bg); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    padding: 40px 26px 72px;
+    max-width: 1120px;
+    margin: 0 auto;
+    background: var(--bg);
+  }
+
+  /* ambient gradient orbs */
+  .orbs { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+  .orb { position: absolute; border-radius: 50%; filter: blur(90px); opacity: 0.5; }
+  .o1 { width: 560px; height: 560px; top: -180px; right: -80px;
+        background: radial-gradient(circle, rgba(58, 110, 187, 0.55), transparent 70%);
+        animation: drift1 26s var(--spring) infinite alternate; }
+  .o2 { width: 460px; height: 460px; bottom: -160px; left: -120px;
+        background: radial-gradient(circle, rgba(255, 122, 89, 0.34), transparent 70%);
+        animation: drift2 32s var(--spring) infinite alternate; }
+  .o3 { width: 380px; height: 380px; top: 40%; left: 55%;
+        background: radial-gradient(circle, rgba(46, 158, 140, 0.26), transparent 70%);
+        animation: drift3 38s var(--spring) infinite alternate; }
+  @keyframes drift1 { to { transform: translate(-120px, 90px) scale(1.15); } }
+  @keyframes drift2 { to { transform: translate(100px, -70px) scale(1.1); } }
+  @keyframes drift3 { to { transform: translate(-90px, -120px) scale(0.9); } }
+
+  /* entrance */
+  @keyframes rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+  section, header { animation: rise 0.65s var(--spring) backwards; }
+  header { animation-delay: 0.02s; }
+  section:nth-of-type(1) { animation-delay: 0.08s; }
+  section:nth-of-type(2) { animation-delay: 0.14s; }
+  section:nth-of-type(3) { animation-delay: 0.20s; }
+  section:nth-of-type(4) { animation-delay: 0.26s; }
+  section:nth-of-type(5) { animation-delay: 0.32s; }
+  section:nth-of-type(6) { animation-delay: 0.38s; }
+  section:nth-of-type(7) { animation-delay: 0.44s; }
+  section:nth-of-type(8) { animation-delay: 0.50s; }
+  section:nth-of-type(9) { animation-delay: 0.56s; }
+  section:nth-of-type(10) { animation-delay: 0.62s; }
+
+  /* icons */
+  .i { width: 16px; height: 16px; flex-shrink: 0; stroke: currentColor; fill: none;
+       stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .card h3 .i { width: 18px; height: 18px; }
+  .i-sm { width: 12px; height: 12px; }
+  .c-blue { color: var(--blue); } .c-coral { color: var(--coral); }
+  .c-teal { color: var(--teal); } .c-amber { color: var(--amber); }
+  .c-green { color: var(--green); } .c-cream { color: var(--cream); }
+
+  /* accessibility + interaction */
+  a, button, summary, input[type="checkbox"] { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  :focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; border-radius: 8px; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition-duration: 0.01ms !important; }
+  }
+
+  /* ─── header: calm greeting ─── */
+  header { padding: 14px 0 26px; }
+  .id-line { font-size: 11.5px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--coral); margin-bottom: 14px; }
+  h1 {
+    font-size: clamp(34px, 6vw, 46px); font-weight: 800; letter-spacing: -0.035em; line-height: 1.05;
+    background: linear-gradient(100deg, var(--cream) 30%, #ffc4ae 75%, var(--coral));
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .date { display: block; font-size: 15px; color: var(--muted); margin-top: 10px; font-variant-numeric: tabular-nums; }
+  .subtitle { font-size: 14px; color: var(--faint); margin-top: 6px; }
+  .since {
+    display: inline-flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 14px;
+    font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums;
+    background: var(--glass); border: 1px solid var(--edge); border-top-color: var(--edge-top);
+    -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+    border-radius: 999px; padding: 7px 16px;
+  }
+  .since b { color: var(--teal); font-weight: 650; }
+
+  /* ─── sections ─── */
+  section { margin: 40px 0; }
+  h2 {
+    display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+    font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: var(--cream);
+    margin-bottom: 16px;
+  }
+  h2 .sub { font-weight: 400; font-size: 13px; letter-spacing: 0; color: var(--faint); }
+  h2 .mini { margin-left: auto; }
+
+  /* ─── wellness tiles ─── */
+  .well-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .tile {
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+    border: 1px solid var(--edge); border-top-color: var(--edge-top);
+    border-radius: var(--r-md); padding: 16px 14px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.22);
+    display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px;
+    transition: transform 240ms var(--spring), background 240ms var(--spring);
+  }
+  .tile:hover { transform: translateY(-2px); background: var(--glass-hi); }
+  .tile .i { width: 19px; height: 19px; }
+  .tile .val { font-size: 21px; font-weight: 700; letter-spacing: -0.02em; color: var(--cream); font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .tile .lbl { font-size: 10.5px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--faint); }
+  .tile .row { display: flex; align-items: center; gap: 8px; }
+  .tick {
+    width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--edge-top);
+    background: transparent; color: var(--muted); font-size: 15px; font-weight: 600; line-height: 1;
+    cursor: pointer; font-family: inherit; display: grid; place-items: center;
+    transition: border-color 160ms var(--spring), color 160ms var(--spring), transform 160ms var(--spring);
+  }
+  .tick:hover { border-color: var(--blue); color: var(--text); }
+  .tick:active { transform: scale(0.88); }
+  .moods { display: flex; gap: 7px; }
+  .mood {
+    width: 20px; height: 20px; border-radius: 50%; border: none; cursor: pointer; opacity: 0.42;
+    transition: transform 180ms var(--spring), opacity 180ms var(--spring), box-shadow 180ms var(--spring);
+  }
+  .mood:hover { opacity: 0.85; transform: scale(1.12); }
+  .mood.sel { opacity: 1; transform: scale(1.22); box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px currentColor; }
+  .m1 { background: #e07a7a; color: #e07a7a; } .m2 { background: var(--coral); color: var(--coral); }
+  .m3 { background: var(--amber); color: var(--amber); } .m4 { background: var(--teal); color: var(--teal); }
+  .m5 { background: var(--green); color: var(--green); }
+  .wk-btn {
+    font-size: 12px; font-weight: 600; padding: 5px 13px; border-radius: 999px; cursor: pointer; font-family: inherit;
+    background: transparent; border: 1px solid var(--edge-top); color: var(--muted);
+    transition: all 180ms var(--spring);
+  }
+  .wk-btn.on { background: rgba(114,214,154,0.14); border-color: rgba(114,214,154,0.4); color: var(--green); }
+
+  /* ─── daily growth cards ─── */
+  .kicker { display: inline-flex; align-items: center; gap: 7px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 10px; }
+  .growth-body { font-size: 14px; color: var(--text); line-height: 1.6; }
+  .growth-body .big { font-size: 17px; font-weight: 650; color: var(--cream); letter-spacing: -0.01em; }
+  .growth-body .dim { color: var(--muted); }
+  .growth-foot { font-size: 11.5px; color: var(--faint); margin-top: 10px; }
+  .quote-text { font-size: 16.5px; font-weight: 550; color: var(--cream); line-height: 1.5; letter-spacing: -0.01em; }
+
+  /* ─── quick launch dock ─── */
+  .dock-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 10px; }
+  a.dock {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    padding: 16px 8px 13px; text-decoration: none;
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(20px) saturate(150%); backdrop-filter: blur(20px) saturate(150%);
+    border: 1px solid var(--edge); border-top-color: var(--edge-top);
+    border-radius: var(--r-md);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.22);
+    transition: transform 220ms var(--spring), background 220ms var(--spring), box-shadow 220ms var(--spring);
+  }
+  a.dock:hover { transform: translateY(-3px) scale(1.02); background: var(--glass-hi); box-shadow: var(--shadow); }
+  a.dock:active { transform: scale(0.96); }
+  a.dock .i { width: 21px; height: 21px; }
+  a.dock .lbl { font-size: 11.5px; font-weight: 550; color: var(--text); letter-spacing: 0; }
+  .dock-sub { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+
+  /* ─── glass buttons ─── */
+  .btn {
+    display: inline-flex; align-items: center; gap: 9px;
+    padding: 11px 18px; min-height: 46px;
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(20px) saturate(150%); backdrop-filter: blur(20px) saturate(150%);
+    border: 1px solid var(--edge); border-top-color: var(--edge-top);
+    border-radius: 999px;
+    color: var(--text); font-size: 14px; font-weight: 500; text-decoration: none; cursor: pointer;
+    font-family: inherit;
+    transition: transform 220ms var(--spring), box-shadow 220ms var(--spring), background 220ms var(--spring), border-color 220ms var(--spring);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+  }
+  .btn:hover { transform: translateY(-2px); background: var(--glass-hi); box-shadow: var(--shadow); }
+  .btn:active { transform: translateY(0) scale(0.97); }
+  .btn.primary { border-color: rgba(108,178,242,0.45); color: var(--blue); box-shadow: 0 2px 16px rgba(108,178,242,0.12); }
+  .btn.copied { border-color: rgba(114,214,154,0.5); color: var(--green); }
+  .mini {
+    font-size: 12px; font-weight: 500; padding: 6px 12px; border-radius: 999px;
+    background: transparent; border: 1px solid var(--edge-top); color: var(--muted); cursor: pointer; font-family: inherit;
+    transition: color 180ms var(--spring), border-color 180ms var(--spring);
+  }
+  .mini:hover { border-color: var(--blue); color: var(--text); }
+
+  /* ─── glass cards ─── */
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .card {
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+    border: 1px solid var(--edge); border-top-color: var(--edge-top);
+    border-radius: var(--r-lg); padding: 20px;
+    box-shadow: var(--shadow);
+    transition: transform 240ms var(--spring), box-shadow 240ms var(--spring), background 240ms var(--spring);
+  }
+  .card:hover { transform: translateY(-2px); background: var(--glass-hi); box-shadow: var(--shadow-lift); }
+  .card h3 { font-size: 15.5px; font-weight: 650; letter-spacing: -0.01em; color: var(--cream); margin-bottom: 7px; display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+  .card p, .card li { font-size: 13.5px; color: var(--muted); line-height: 1.6; }
+  .card code { font-size: 12px; color: var(--text); background: rgba(7,12,22,0.6); padding: 2px 7px; border-radius: 6px; }
+  .pill {
+    margin-left: auto; font-size: 10.5px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.07em;
+    padding: 3px 10px; border-radius: 999px; flex-shrink: 0;
+  }
+  .pill.green { color: var(--green); background: rgba(114,214,154,0.10); border: 1px solid rgba(114,214,154,0.28); }
+  .pill.amber { color: var(--amber); background: rgba(236,189,102,0.10); border: 1px solid rgba(236,189,102,0.28); }
+  .pill.blue  { color: var(--blue);  background: rgba(108,178,242,0.10); border: 1px solid rgba(108,178,242,0.28); }
+  .pill.coral { color: var(--coral); background: rgba(255,149,120,0.10); border: 1px solid rgba(255,149,120,0.28); }
+  .pill.gray  { color: var(--muted); background: rgba(150,163,184,0.08); border: 1px solid var(--edge-top); }
+
+  /* ─── circular checks ─── */
+  input[type="checkbox"] {
+    -webkit-appearance: none; appearance: none;
+    width: 23px; height: 23px; border-radius: 50%;
+    border: 1.5px solid #52627c; background: transparent; cursor: pointer; flex-shrink: 0;
+    background-repeat: no-repeat; background-position: center; background-size: 13px;
+    transition: background 180ms var(--spring), border-color 180ms var(--spring), transform 180ms var(--spring);
+  }
+  input[type="checkbox"]:hover { border-color: var(--teal); }
+  input[type="checkbox"]:active { transform: scale(0.9); }
+  input[type="checkbox"]:checked {
+    border-color: transparent;
+    background-color: var(--teal);
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23071018' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'><path d='M20 6 9 17l-5-5'/></svg>");
+  }
+
+  /* daily 3 */
+  .daily3 .row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .daily3 input[type="text"], .tool-note, textarea {
+    background: rgba(7, 12, 22, 0.55); border: 1px solid var(--edge); border-radius: var(--r-sm);
+    color: var(--text); font-size: 14px; padding: 11px 14px; font-family: inherit;
+    transition: border-color 180ms var(--spring), background 180ms var(--spring);
+  }
+  .daily3 input[type="text"] { flex: 1; min-height: 46px; }
+  .daily3 input[type="text"]:focus, .tool-note:focus, textarea:focus { outline: none; border-color: rgba(108,178,242,0.55); background: rgba(7,12,22,0.75); }
+  .daily3 .row.done input[type="text"] { text-decoration: line-through; color: var(--faint); }
+  .stale-note { font-size: 13px; color: var(--amber); margin-bottom: 12px; display: none; }
+  .stale-note button { margin-left: 8px; }
+
+  /* countdown widget */
+  .cd-widget {
+    text-align: center; padding: 18px 24px; display: flex; flex-direction: column; justify-content: center;
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+    border: 1px solid var(--edge); border-top-color: var(--edge-top);
+    border-radius: var(--r-lg); box-shadow: var(--shadow);
+  }
+  .cd-num {
+    font-size: 50px; font-weight: 800; letter-spacing: -0.04em; line-height: 1;
+    font-variant-numeric: tabular-nums;
+    background: linear-gradient(180deg, #fff, #ffb59b);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .cd-label { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--coral); margin-top: 8px; }
+
+  /* life tools */
+  .tool .next { font-size: 13px; color: var(--muted); margin: 6px 0 12px; line-height: 1.55; }
+  .tool .next b { color: var(--text); font-weight: 550; }
+  .tool .foot { display: flex; align-items: center; gap: 10px; }
+  .tool .foot a { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 500; color: var(--blue); text-decoration: none; white-space: nowrap; padding: 6px 2px; }
+  .tool .foot a:hover { text-decoration: underline; }
+  .tool .foot a.placeholder { color: var(--faint); }
+  .tool-note { flex: 1; min-width: 0; font-size: 12.5px; padding: 8px 12px; border-radius: 999px; }
+
+  /* pinned projects */
+  .stack { display: flex; flex-direction: column; gap: 10px; }
+  .stack .item {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(20px) saturate(150%); backdrop-filter: blur(20px) saturate(150%);
+    border: 1px solid var(--edge); border-top-color: var(--edge-top);
+    border-radius: var(--r-md); padding: 14px 18px; font-size: 14px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.22);
+    transition: transform 220ms var(--spring), background 220ms var(--spring);
+  }
+  .stack .item:hover { transform: translateX(3px); background: var(--glass-hi); }
+  .stack .item .name { color: var(--cream); font-weight: 600; letter-spacing: -0.01em; }
+  .stack .tag {
+    font-size: 11.5px; font-weight: 700; padding: 3px 11px; border-radius: 999px; flex-shrink: 0;
+    background: rgba(108,178,242,0.12); color: var(--blue); border: 1px solid rgba(108,178,242,0.3);
+  }
+  .stack .tag.t2 { background: rgba(150,163,184,0.08); color: var(--muted); border-color: var(--edge-top); }
+  .stack .note { margin-left: auto; font-size: 12.5px; color: var(--faint); }
+
+  /* checklist + progress ring */
+  .check-head { display: flex; align-items: center; gap: 9px; }
+  .check-head h3 { flex: 1; margin-bottom: 0; }
+  .ring { transform: rotate(-90deg); flex-shrink: 0; }
+  .ring .bgc { fill: none; stroke: rgba(255,255,255,0.09); stroke-width: 3.5; }
+  .ring .fgc { fill: none; stroke: var(--teal); stroke-width: 3.5; stroke-linecap: round;
+               transition: stroke-dashoffset 500ms var(--spring); }
+  .check .row { display: flex; align-items: flex-start; gap: 12px; padding: 9px 0; font-size: 14px; }
+  .check input[type="checkbox"] { width: 21px; height: 21px; margin-top: 0; background-size: 12px; }
+  .check .row.done label { text-decoration: line-through; color: var(--faint); }
+  .check label { cursor: pointer; color: var(--text); line-height: 1.45; padding-top: 1px; }
+  .progress { font-size: 12.5px; color: var(--muted); margin: 6px 0 8px; font-variant-numeric: tabular-nums; }
+
+  /* prompts + growth details */
+  details { margin-top: 12px; }
+  summary { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 500; color: var(--faint); cursor: pointer; padding: 4px 0; list-style: none; }
+  summary::-webkit-details-marker { display: none; }
+  summary::before { content: ""; width: 7px; height: 7px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform 200ms var(--spring); margin-right: 2px; }
+  details[open] summary::before { transform: rotate(45deg); }
+  summary:hover { color: var(--muted); }
+  pre.prompt {
+    white-space: pre-wrap; font-size: 12px; line-height: 1.6; color: var(--muted);
+    background: rgba(7,12,22,0.6); border: 1px solid var(--edge); border-radius: var(--r-sm);
+    padding: 14px; margin-top: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .answer { font-size: 13.5px; color: var(--muted); line-height: 1.6; margin-top: 8px; }
+
+  /* scratchpad */
+  textarea { width: 100%; min-height: 150px; resize: vertical; border-radius: var(--r-lg); line-height: 1.65; padding: 16px;
+    -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); box-shadow: var(--shadow); }
+  .pad-actions { display: flex; gap: 10px; margin-top: 10px; }
+
+  footer { margin-top: 56px; font-size: 12px; color: var(--faint); text-align: center; line-height: 1.9; }
+  footer .brand { color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; font-size: 11px; font-weight: 600; }
+
+  @media (max-width: 640px) {
+    body { padding: 24px 16px 56px; }
+    .grid { grid-template-columns: 1fr; }
+    .well-grid { grid-template-columns: repeat(2, 1fr); }
+    .dock-grid { grid-template-columns: repeat(3, 1fr); }
+    .stack .note { margin-left: 0; width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ambient background orbs (pure decoration) -->
+<div class="orbs" aria-hidden="true"><div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div></div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     ZONE: ICONS — inline SVG sprite (Lucide-style, 24×24, 2px stroke).
+     Use as: <svg class="i c-blue" aria-hidden="true"><use href="#i-name"/></svg>
+     ════════════════════════════════════════════════════════════════ -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></symbol>
+  <symbol id="i-inbox" viewBox="0 0 24 24"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+  <symbol id="i-clipboard" viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></symbol>
+  <symbol id="i-clipboard-check" viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+  <symbol id="i-tooth" viewBox="0 0 24 24"><path d="M12 4.5c-1.8 0-2.6-1-4.5-1C5 3.5 4 5 4 7c0 2.5 1.4 3.4 1.4 5.4 0 2.8.6 8.1 2.5 8.1 1.7 0 1.3-4.5 4.1-4.5s2.4 4.5 4.1 4.5c1.9 0 2.5-5.3 2.5-8.1 0-2 1.4-2.9 1.4-5.4 0-2-1-3.5-3.5-3.5-1.9 0-2.7 1-4.5 1z"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></symbol>
+  <symbol id="i-file-text" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></symbol>
+  <symbol id="i-cart" viewBox="0 0 24 24"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></symbol>
+  <symbol id="i-dollar" viewBox="0 0 24 24"><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></symbol>
+  <symbol id="i-activity" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></symbol>
+  <symbol id="i-grad-cap" viewBox="0 0 24 24"><path d="M21.42 10.92a1 1 0 0 0-.02-1.84L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.83l8.57 3.91a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/></symbol>
+  <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></symbol>
+  <symbol id="i-arrow-up-right" viewBox="0 0 24 24"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+  <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></symbol>
+  <symbol id="i-dumbbell" viewBox="0 0 24 24"><path d="M6.5 6.5v11"/><path d="M17.5 6.5v11"/><path d="M3 9v6"/><path d="M21 9v6"/><path d="M6.5 12h11"/></symbol>
+  <symbol id="i-smile" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01"/><path d="M15 9h.01"/></symbol>
+  <symbol id="i-sunrise" viewBox="0 0 24 24"><path d="M12 2v6"/><path d="m4.93 10.93 1.41 1.41"/><path d="M2 18h2"/><path d="M20 18h2"/><path d="m19.07 10.93-1.41 1.41"/><path d="M22 22H2"/><path d="m8 6 4-4 4 4"/><path d="M16 18a4 4 0 0 0-8 0"/></symbol>
+  <symbol id="i-gem" viewBox="0 0 24 24"><path d="M6 3h12l4 6-10 13L2 9Z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/></symbol>
+  <symbol id="i-move" viewBox="0 0 24 24"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" x2="22" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="22"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M9.94 15.5a2 2 0 0 0-1.44-1.44L2.37 12.5a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.13a.5.5 0 0 1 .96 0l1.58 6.13a2 2 0 0 0 1.44 1.44l6.13 1.58a.5.5 0 0 1 0 .96l-6.13 1.58a2 2 0 0 0-1.44 1.44l-1.58 6.13a.5.5 0 0 1-.96 0z"/></symbol>
+  <symbol id="i-compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></symbol>
+  <symbol id="i-bot" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M12 6v4"/><circle cx="12" cy="4" r="2"/><path d="M9 15h.01"/><path d="M15 15h.01"/></symbol>
+</svg>
+
+<!-- ════════════════════════════════════════════════════════════════
+     ZONE: CONFIG — identity, dates, exam, wellness demo values, and
+     the Quick Launch dock (edit URLs/labels/icons here; the dock
+     renders itself from this list). Status badges on dock tiles are
+     a Phase 3 feature (needs live data) — see the platform roadmap.
+     ════════════════════════════════════════════════════════════════ -->
+<script>
+  const CONFIG = {
+    firstName: "Daniel",
+    identity: "Daniel Lozano · DDS · Life OS",
+    subtitle: "Dugoni launch control — built from Miami, running in San Francisco.",
+    nextExam: { label: "PRD 231 Occlusion quiz", date: "2026-07-20", detail: "Mon 8–9am" },
+    examSeason: "Mon 8–9am exam slot · Jul 20 – Sep 14, 2026",
+    /* Wellness demo values — extension point: Apple Health / Garmin / weather API */
+    wellness: { sleep: "7h 30m", steps: "—", sun: "5:58a · 8:33p", weather: "SF · fog → sun" },
+    /* Quick Launch dock — { label, url, icon, color } */
+    dock: [
+      { label: "Canvas",       url: "https://pacific.instructure.com",      icon: "i-grad-cap", color: "c-coral" },
+      { label: "UOP Portal",   url: "https://insidepacific.pacific.edu",    icon: "i-compass",  color: "c-amber" },
+      { label: "Calendar",     url: "https://calendar.google.com",          icon: "i-calendar", color: "c-blue" },
+      { label: "Gmail",        url: "https://mail.google.com",              icon: "i-mail",     color: "c-coral" },
+      { label: "Claude",       url: "https://claude.ai",                    icon: "i-sparkle",  color: "c-cream" },
+      { label: "ChatGPT",      url: "https://chatgpt.com",                  icon: "i-bot",      color: "c-teal" },
+      { label: "GitHub",       url: "https://github.com",                   icon: "i-code",     color: "c-blue" },
+      { label: "Drive",        url: "https://drive.google.com",             icon: "i-folder",   color: "c-green" },
+      { label: "Library",      url: "https://library.pacific.edu",          icon: "i-book",     color: "c-amber" }
+    ]
+  };
+</script>
+
+<!-- ════════════════════════════════════════════════════════════════
+     ZONE: GROWTH CONTENT — the daily-mix library.
+     Card SLOTS rotate their TYPE and their CONTENT by day-of-year, so
+     tomorrow is always different from today (dynamic-content rule:
+     every visit contains something new). Add entries freely — arrays
+     can be any length. Extension point: swap any array for a feed
+     (e.g. spaced-repetition Question of the Day) in Phase 4.
+     ════════════════════════════════════════════════════════════════ -->
+<script>
+  const GROWTH = {
+    /* ── dental slot ── */
+    pearls: [
+      "In ideal Class I occlusion, the mesiobuccal cusp of the maxillary first molar seats in the buccal groove of the mandibular first molar.",
+      "The IA nerve block can miss the mylohyoid nerve — a supplemental lingual infiltration often rescues a \"failed\" block.",
+      "Enamel etches chalky-white in ~15s with 37% phosphoric acid; over-etching dentin collapses collagen and weakens the hybrid layer.",
+      "Maxillary first premolars usually have two roots and two canals; mandibular first premolars have one root but notoriously complex apical anatomy.",
+      "Cold test: a lingering ache >30s after stimulus removal suggests irreversible pulpitis; a sharp response that resolves quickly suggests reversible.",
+      "Epinephrine ceiling for cardiac-risk patients ≈ 0.04 mg — about two carpules of 1:100,000.",
+      "Bleeding on probing predicts progression poorly — but its consistent absence is one of the strongest predictors of periodontal stability.",
+      "Ante's law: combined abutment root surface area should equal or exceed that of the teeth being replaced.",
+      "Dry socket prevention lives in the first 24h: protect the clot — no rinsing, spitting, straws, or smoking.",
+      "The pulp chamber floor is darker than the walls, and its developmental \"road map\" lines lead to the canal orifices."
+    ],
+    instruments: [
+      { n: "Shepherd's hook explorer (#23)", t: "Tactile caries and margin detection — though visual + radiographic criteria increasingly outrank the \"stick.\"" },
+      { n: "Periodontal probe", t: "Calibrated in mm — pocket depths, recession, bleeding on probing. The perio exam lives and dies by consistent probing force." },
+      { n: "Spoon excavator", t: "Hand removal of soft carious dentin — lets you feel the difference between infected mush and affected, remineralizable dentin." },
+      { n: "Mouth mirror", t: "Three jobs in one: indirect vision, retraction, and transillumination. Master indirect vision early — your neck will thank you." },
+      { n: "High-speed handpiece", t: "~300–400k rpm. The water spray isn't optional — cutting dry cooks the pulp (>5.5°C rise risks irreversible damage)." }
+    ],
+    materials: [
+      { n: "Composite resin", t: "Bis-GMA matrix + filler. Its enemy is polymerization shrinkage — hence incremental layering and careful C-factor thinking." },
+      { n: "Amalgam", t: "Self-sealing over time via corrosion products; forgiving in bulk and moisture. Still the toughness benchmark composites chase." },
+      { n: "Glass ionomer", t: "Chemically bonds to tooth and releases fluoride; moisture-tolerant. The go-to when isolation is hopeless." },
+      { n: "37% phosphoric acid", t: "15s on enamel creates the microporous surface bonding depends on. On dentin, less is more — etch, don't excavate." },
+      { n: "Zinc oxide eugenol", t: "The classic sedative temporary — but eugenol inhibits composite polymerization, so know what's going on top of it." }
+    ],
+    boardQ: [
+      { q: "Which cusps are the primary supporting (functional) cusps?", a: "Maxillary lingual cusps and mandibular buccal cusps — they seat into opposing central fossae and marginal ridges." },
+      { q: "A patient on warfarin needs a simple extraction. What guides the decision?", a: "INR — generally proceed if ≤3.5 with local hemostatic measures; never stop anticoagulation without the physician." },
+      { q: "Most common cause of post-op sensitivity in a Class II composite?", a: "Gap formation at the gingival margin — polymerization shrinkage or a poor matrix seal → microleakage." },
+      { q: "Why reach for 3% mepivacaine plain?", a: "No vasoconstrictor — shorter, softer anesthesia when epinephrine is contraindicated or a short procedure is planned." },
+      { q: "First permanent tooth to erupt, and why it matters?", a: "Mandibular first molar (~age 6) — it sets the occlusal foundation, and its early caries risk is why sealants matter." }
+    ],
+    clinTips: [
+      "Pick the shade *before* rubber dam isolation — teeth lighten as they dehydrate and your match will be off by the end.",
+      "Dry the tooth, don't desiccate it — a chalky-dry dentin surface means you've already hurt the bond and maybe the pulp.",
+      "Place the wedge before you prep the box in a Class II — pre-separation pays you back at contact time.",
+      "Check occlusion with the patient sitting up, not supine — the mandible seats differently against gravity.",
+      "A two-point finger rest isn't just ergonomics — it's the difference between a controlled slip and a soft-tissue laceration."
+    ],
+    /* ── body slot ── */
+    stretch: [
+      { name: "Levator scapulae stretch", target: "Neck / shoulder blade elevators", dur: "30s per side", why: "The classic \"dentist's knot\" — counters hours of forward-head, tilted-neck posture over the patient." },
+      { name: "Wrist flexor stretch", target: "Forearm flexors", dur: "30s per side", why: "Offloads the muscles that grip instruments all day; protects the carpal tunnel." },
+      { name: "Thoracic extension over a chair back", target: "Mid-back (T-spine)", dur: "45s", why: "Reverses the rounded operating posture; a mobile T-spine spares the neck and low back." },
+      { name: "Doorway pec stretch", target: "Chest / anterior shoulder", dur: "30s per side", why: "Opens the chest that hunching over the patient closes; helps shoulders sit back where they belong." },
+      { name: "Half-kneeling hip flexor stretch", target: "Hip flexors / psoas", dur: "40s per side", why: "Stool-sitting shortens these all day; tight hip flexors pull the lumbar spine into strain." },
+      { name: "Chin tucks", target: "Deep neck flexors", dur: "10 reps × 5s", why: "Retrains the head to sit over the spine instead of drifting toward the patient — cheap insurance for loupes users." },
+      { name: "Forearm extensor stretch", target: "Forearm extensors", dur: "30s per side", why: "Balances the flexor work of gripping; helps prevent lateral elbow pain from pen-grip instruments." },
+      { name: "Standing hamstring hinge", target: "Hamstrings / posterior chain", dur: "45s", why: "Long sitting shortens hamstrings, which flattens the lumbar curve — hinge, don't slump." }
+    ],
+    bodyTips: [
+      { k: "Nutrition", t: "Protein at breakfast (30g+) stabilizes energy through a lecture block better than any coffee strategy." },
+      { k: "Nutrition", t: "Prep isn't cooking — it's decisions. Deciding tonight what you eat tomorrow is 90% of eating well in school." },
+      { k: "Sleep", t: "Same wake time seven days a week beats extra weekend sleep — the rhythm, not the total, drives alertness at 8am exams." },
+      { k: "Sleep", t: "Last caffeine by 2pm: its quarter-life is ~12 hours, and Monday-morning exams are won on Sunday night's sleep." },
+      { k: "Hydration", t: "A water bottle within arm's reach doubles intake without willpower. Placement beats intention." },
+      { k: "Eye break", t: "20-20-20: every 20 minutes, look 20 feet away for 20 seconds. Loupes and screens both cash this check." },
+      { k: "Eye break", t: "Blink rate halves under magnification and screens — dry, tired eyes by 3pm is a habit problem, not a fatigue problem." }
+    ],
+    /* ── mind slot ── */
+    quotes: [
+      "Discipline is remembering what you want.",
+      "The best clinicians are consistent, not heroic.",
+      "Respect. Present. Curious.",
+      "You do not rise to the level of your goals; you fall to the level of your systems.",
+      "Slow is smooth, and smooth is fast — especially with a handpiece.",
+      "The best preparation for tomorrow is to do today's work superbly well. — Osler",
+      "You have power over your mind, not outside events. — Marcus Aurelius",
+      "Amateurs practice until they get it right. Professionals practice until they can't get it wrong."
+    ],
+    mentalModels: [
+      { n: "Inversion", t: "Instead of \"how do I pass?\", ask \"what would guarantee I fail?\" — then don't do those things. Avoiding stupidity beats seeking brilliance." },
+      { n: "Second-order thinking", t: "Skipping tonight's review feels free. The second-order cost arrives the Sunday before the exam, with interest." },
+      { n: "Pareto (80/20)", t: "A minority of lecture slides carry the exam. The skill isn't studying more — it's identifying which minority." },
+      { n: "Hanlon's razor", t: "The curt classmate, the slow reply, the blunt professor — assume overload before malice. It's usually overload." },
+      { n: "Compounding", t: "Twenty cards a day is invisible for a month and unstoppable by boards. Systems that compound beat sprints that impress." }
+    ],
+    /* ── fun slot (mixed feed — label per entry) ── */
+    fun: [
+      { k: "Famous Dentist", t: "Pierre Fauchard (1678–1761) — the \"father of modern dentistry\" — described braces, fillings, and dental prostheses in Le Chirurgien Dentiste (1728)." },
+      { k: "Famous Dentist", t: "Lucy Hobbs Taylor became the first woman to earn a DDS in 1866 — after being refused admission and apprenticing her way in anyway." },
+      { k: "Famous Dentist", t: "G.V. Black — the G.V. of your cavity classifications — also standardized \"extension for prevention\" and instrument nomenclature. One person, half your operative course." },
+      { k: "History", t: "Paul Revere practiced dentistry — and performed America's first recorded forensic dental identification, recognizing a friend's body by a bridge he'd made." },
+      { k: "Animal", t: "A narwhal's tusk is a tooth — a left canine that spirals up to 10 feet and senses water salinity through millions of tubules." },
+      { k: "Body Fact", t: "Enamel is the hardest substance the human body makes — ~96% mineral — yet it can't heal. Everything you keep, you keep by protecting it." },
+      { k: "Animal", t: "Sharks regrow teeth their whole lives — some species cycle through 30,000. Humans get two sets; dentists exist because of set two." },
+      { k: "History", t: "The Ebers Papyrus (~1550 BC) already described gum disease remedies — periodontitis has outlasted every civilization that studied it." }
+    ],
+    /* ── future you slot ── */
+    future: [
+      "Dr. Lozano, DDS — Dugoni Class of 2028.",
+      "Owner of Anillo Dentistry — the family practice, stronger for the next generation.",
+      "The dentist who builds the software other dentists use.",
+      "A healthy man with a healthy family.",
+      "Financially free — working because you choose to.",
+      "Five acres in Miami — built from patience and compounding.",
+      "A lifelong learner — 1% sharper every day."
+    ]
+  };
+</script>
+
+<!-- ════════════════════════════════════════════════════════════════
+     ZONE: WELCOME — calm greeting + the "since yesterday" strip (v0:
+     computed from localStorage — visit streak, yesterday's Big 3 and
+     water. v1 with vault/Canvas changes arrives in Phase 3).
+     ════════════════════════════════════════════════════════════════ -->
+<header>
+  <p class="id-line" id="identity"></p>
+  <h1 id="greeting">Good morning.</h1>
+  <span class="date" id="today"></span>
+  <p class="subtitle" id="subtitle"></p>
+  <span class="since" id="sinceLine" hidden></span>
+</header>
+
+<!-- ════════════════════════════════════════════════════════════════
+     ZONE: WELLNESS — body first (key: dlos.wellness, resets daily).
+     ════════════════════════════════════════════════════════════════ -->
+<section>
+  <h2>Wellness <span class="sub">30 seconds for Future Daniel</span></h2>
+  <div class="well-grid">
+    <div class="tile">
+      <svg class="i c-blue" aria-hidden="true"><use href="#i-moon"/></svg>
+      <span class="val" id="wSleep"></span>
+      <span class="lbl">Sleep</span>
+    </div>
+    <div class="tile">
+      <svg class="i c-teal" aria-hidden="true"><use href="#i-drop"/></svg>
+      <span class="row">
+        <button class="tick" id="waterMinus" aria-label="Remove a glass of water">−</button>
+        <span class="val" id="wWater">0</span>
+        <button class="tick" id="waterPlus" aria-label="Add a glass of water">+</button>
+      </span>
+      <span class="lbl">Glasses of water</span>
+    </div>
+    <div class="tile">
+      <svg class="i c-coral" aria-hidden="true"><use href="#i-dumbbell"/></svg>
+      <button class="wk-btn" id="workoutBtn">Not yet</button>
+      <span class="lbl">Workout</span>
+    </div>
+    <div class="tile">
+      <svg class="i c-amber" aria-hidden="true"><use href="#i-smile"/></svg>
+      <span class="moods" role="group" aria-label="Mood check-in">
+        <button class="mood m1" data-mood="0" aria-label="Mood: rough"></button>
+        <button class="mood m2" data-mood="1" aria-label="Mood: low"></button>
+        <button class="mood m3" data-mood="2" aria-label="Mood: okay"></button>
+        <button class="mood m4" data-mood="3" aria-label="Mood: good"></button>
+        <button class="mood m5" data-mood="4" aria-label="Mood: great"></button>
+      </span>
+      <span class="lbl">Mood</span>
+    </div>
+    <div class="tile">
+      <svg class="i c-green" aria-hidden="true"><use href="#i-activity"/></svg>
+      <span class="val" id="wSteps"></span>
+      <span class="lbl">Steps</span>
+    </div>
+    <div class="tile">
+      <svg class="i c-amber" aria-hidden="true"><use href="#i-sunrise"/></svg>
+      <span class="val" style="font-size:15px" id="wSun"></span>
+      <span class="lbl" id="wWeather"></span>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════
+     ZONE: GROWTH — six daily-mix slots. Slot types AND content rotate
+     by day (see buildGrowth in the script at the bottom).
+     ════════════════════════════════════════════════════════════════ -->
+<section>
+  <h2>Daily Growth <span class="sub">1% better today · new mix every day</span>
+    <button class="mini" id="shuffleGrowth" title="Show a different mix">Shuffle</button>
+  </h2>
+  <div class="grid">
+    <div class="card"><span class="kicker" id="k1"></span><div class="growth-body" id="b1"></div></div>
+    <div class="card"><span class="kicker" id="k2"></span><div class="growth-body" id="b2"></div></div>
+    <div class="card"><span class="kicker" id="k3"></span><div class="growth-body" id="b3"></div></div>
+    <div class="card"><span class="kicker" id="k4"></span><div class="growth-body" id="b4"></div></div>
+    <div class="card"><span class="kicker" id="k5"></span><div class="growth-body" id="b5"></div></div>
+    <div class="card"><span class="kicker" id="k6"></span><div class="growth-body" id="b6"></div>
+      <p class="growth-foot">Identity, not pressure. You're already becoming this.</p></div>
+  </div>
+</section>
+
+<!-- Today's Big 3 (key unchanged: dlos.daily3) -->
+<section class="daily3">
+  <h2>Today's Big 3 <span class="sub">exactly three — nothing else counts today</span></h2>
+  <div class="card">
+    <p class="stale-note" id="staleNote">These are from <span id="staleDate"></span>. <button class="mini" id="resetDaily">Start today's 3</button></p>
+    <div class="row" data-i="0"><input type="checkbox" aria-label="Mark priority 1 done" /><input type="text" placeholder="1. Most important thing today" aria-label="Priority 1" /></div>
+    <div class="row" data-i="1"><input type="checkbox" aria-label="Mark priority 2 done" /><input type="text" placeholder="2. Second priority" aria-label="Priority 2" /></div>
+    <div class="row" data-i="2"><input type="checkbox" aria-label="Mark priority 3 done" /><input type="text" placeholder="3. Third priority" aria-label="Priority 3" /></div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════
+     ZONE: QUICK LAUNCH — mission-control dock. Web apps render from
+     CONFIG.dock; vault shortcuts stay as pill buttons beneath.
+     Status badges (Canvas assignments, unread mail, …) = Phase 3.
+     ════════════════════════════════════════════════════════════════ -->
+<section>
+  <h2>Quick Launch <span class="sub">everything important, one click away</span></h2>
+  <div class="dock-grid" id="dockGrid"></div>
+  <div class="dock-sub">
+    <a class="btn primary" href="obsidian://open?vault=Lozano%27s%20Vault&file=00%20Dashboard%2FMaster%20Dashboard"><svg class="i" aria-hidden="true"><use href="#i-grid"/></svg><span data-label>Obsidian → Master Dashboard</span></a>
+    <a class="btn" href="obsidian://open?vault=Lozano%27s%20Vault&file=01%20Inbox%2FCapture"><svg class="i c-teal" aria-hidden="true"><use href="#i-inbox"/></svg><span data-label>Capture Inbox</span></a>
+    <a class="btn" href="obsidian://open?vault=Lozano%27s%20Vault&file=00%20Dashboard%2FWeekly%20CEO%20Review"><svg class="i c-blue" aria-hidden="true"><use href="#i-refresh"/></svg><span data-label>Weekly CEO Review</span></a>
+    <a class="btn" href="file:///Users/dlozanojr2/Intake/Drop/" title="If your browser blocks folder links: Finder → Go → Go to Folder (⇧⌘G) and paste the path"><svg class="i c-amber" aria-hidden="true"><use href="#i-folder"/></svg><span data-label>Intake Drop</span></a>
+    <button class="btn mini-copy" data-copy="/Users/dlozanojr2/Intake/Drop" title="Copy Drop folder path"><svg class="i c-coral" aria-hidden="true"><use href="#i-clipboard"/></svg><span data-label>Copy Drop path</span></button>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════
+     ZONE: SCHOOL — "Dugoni Command": countdown, exam radar, study
+     loop, reviews, intake, and the before-school checklist.
+     ════════════════════════════════════════════════════════════════ -->
+<section>
+  <h2>Dugoni Command <span class="sub">DDS 2028 · Arthur A. Dugoni School of Dentistry</span></h2>
+  <div class="grid">
+    <div class="cd-widget">
+      <div class="cd-num" id="cdNum">–</div>
+      <div class="cd-label" id="cdLabel">days to go</div>
+    </div>
+    <div class="card">
+      <h3><svg class="i c-coral" aria-hidden="true"><use href="#i-target"/></svg>Next Exam <span class="pill coral" id="examPill">radar</span></h3>
+      <p><strong style="color:var(--cream)" id="examLabel"></strong><br /><span id="examDetail"></span></p>
+      <p style="margin-top:6px" id="examSeason"></p>
+    </div>
+    <div class="card">
+      <h3><svg class="i c-cream" aria-hidden="true"><use href="#i-tooth"/></svg>Study Loop <span class="pill amber">arming</span></h3>
+      <p>Lecture → Shakedown note → Anki from misses → weekly review. Dry-run it on one lecture before Day 1 — prompts live in the Study Engine below.</p>
+    </div>
+    <div class="card">
+      <h3><svg class="i c-blue" aria-hidden="true"><use href="#i-refresh"/></svg>Weekly CEO Review <span class="pill blue">weekly</span></h3>
+      <p>Sunday night or Monday morning, ~20 min. Empty Capture first, then wins → lessons → moved/stalled → next actions.</p>
+    </div>
+    <div class="card">
+      <h3><svg class="i c-amber" aria-hidden="true"><use href="#i-folder"/></svg>File Intake <span class="pill green">running</span></h3>
+      <p>Drop anything into <code>~/Intake/Drop</code>; the system files it into the Library. Code: <code>~/Projects/intake-system</code>.</p>
+    </div>
+  </div>
+
+  <div class="card check" style="margin-top:16px">
+    <div class="check-head">
+      <h3><svg class="i c-teal" aria-hidden="true"><use href="#i-clipboard-check"/></svg>Before School Starts</h3>
+      <svg class="ring" width="44" height="44" viewBox="0 0 44 44" aria-hidden="true">
+        <circle class="bgc" cx="22" cy="22" r="18"/>
+        <circle class="fgc" id="ringFg" cx="22" cy="22" r="18" stroke-dasharray="113.1" stroke-dashoffset="113.1"/>
+      </svg>
+    </div>
+    <p class="progress" id="checkProgress"></p>
+    <div id="checkList"></div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════
+     ZONE: PROMPTS — "Study Engine".
+     ════════════════════════════════════════════════════════════════ -->
+<section>
+  <h2>Study Engine <span class="sub">copy, then paste into Claude Code</span></h2>
+  <div class="grid">
+    <div class="card">
+      <h3><svg class="i c-amber" aria-hidden="true"><use href="#i-sun"/></svg>Daily Startup</h3>
+      <p>Morning brief: inbox check, next exam, today's one move on P1.</p>
+      <button class="btn" style="margin-top:12px" data-prompt="daily"><svg class="i" aria-hidden="true"><use href="#i-clipboard"/></svg><span data-label>Copy prompt</span></button>
+      <details><summary>Preview</summary><pre class="prompt" id="pv-daily"></pre></details>
+    </div>
+    <div class="card">
+      <h3><svg class="i c-cream" aria-hidden="true"><use href="#i-file-text"/></svg>Lecture Shakedown</h3>
+      <p>Distill a lecture into one permanent note (your Shakedown standard).</p>
+      <button class="btn" style="margin-top:12px" data-prompt="shakedown"><svg class="i" aria-hidden="true"><use href="#i-clipboard"/></svg><span data-label>Copy prompt</span></button>
+      <details><summary>Preview</summary><pre class="prompt" id="pv-shakedown"></pre></details>
+    </div>
+    <div class="card">
+      <h3><svg class="i c-teal" aria-hidden="true"><use href="#i-layers"/></svg>Anki from Misses</h3>
+      <p>Turn wrong answers into minimal, paste-ready Anki cards.</p>
+      <button class="btn" style="margin-top:12px" data-prompt="anki"><svg class="i" aria-hidden="true"><use href="#i-clipboard"/></svg><span data-label>Copy prompt</span></button>
+      <details><summary>Preview</summary><pre class="prompt" id="pv-anki"></pre></details>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════
+     ZONE: PROJECTS — "Pinned Projects". Mirror of Active Projects.
+     ════════════════════════════════════════════════════════════════ -->
+<section>
+  <h2>Pinned Projects <span class="sub">source of truth: Active Projects in Obsidian</span></h2>
+  <div class="stack">
+    <div class="item"><span class="tag">P1</span> <span class="name">Dental Study Software</span> <span class="note">active — run Debrief on one real lecture, smallest usable version by Jul 13</span></div>
+    <div class="item"><span class="tag">P2</span> <span class="name">Dental Office Social Media Tools</span> <span class="note">research — Anillo content-struggle question</span></div>
+    <div class="item"><span class="tag">P3</span> <span class="name">AI Personal / Home Assistant</span> <span class="note">vision — collect workflow pains, don't build yet</span></div>
+    <div class="item"><span class="tag t2">Tier 2</span> <span class="name">Master File Intake System</span> <span class="note">running — maintain, don't expand</span></div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════
+     ZONE: LIFE TOOLS — "Miami Home Base".
+     ════════════════════════════════════════════════════════════════ -->
+<section>
+  <h2>Miami Home Base <span class="sub">life tools · control panel here, memory in Obsidian</span></h2>
+  <div class="grid">
+
+    <div class="card tool">
+      <h3><svg class="i c-coral" aria-hidden="true"><use href="#i-cart"/></svg>Grocery / Meal Prep <span class="pill gray">not built</span></h3>
+      <p class="next"><b>Next:</b> draft a weekly staples list + 3 default meals.</p>
+      <div class="foot">
+        <a class="placeholder" href="obsidian://open?vault=Lozano%27s%20Vault&file=03%20Areas%2FBody" title="No Meal Prep note yet — opens Body area"><svg class="i i-sm" aria-hidden="true"><use href="#i-arrow-up-right"/></svg>vault (placeholder)</a>
+        <input class="tool-note" data-tool="grocery" placeholder="quick note…" aria-label="Grocery quick note" />
+      </div>
+    </div>
+
+    <div class="card tool">
+      <h3><svg class="i c-teal" aria-hidden="true"><use href="#i-home"/></svg>Apartment / Cleaning <span class="pill gray">manual</span></h3>
+      <p class="next"><b>Next:</b> set a 30-min Sunday reset routine.</p>
+      <div class="foot">
+        <a class="placeholder" href="obsidian://open?vault=Lozano%27s%20Vault&file=03%20Areas%2FSelf" title="No Apartment note yet — opens Self area"><svg class="i i-sm" aria-hidden="true"><use href="#i-arrow-up-right"/></svg>vault (placeholder)</a>
+        <input class="tool-note" data-tool="apartment" placeholder="quick note…" aria-label="Apartment quick note" />
+      </div>
+    </div>
+
+    <div class="card tool">
+      <h3><svg class="i c-green" aria-hidden="true"><use href="#i-dollar"/></svg>Finances / Loans <span class="pill blue">tracked</span></h3>
+      <p class="next"><b>Next:</b> confirm loan disbursement timing + set the monthly budget check.</p>
+      <div class="foot">
+        <a href="obsidian://open?vault=Lozano%27s%20Vault&file=03%20Areas%2FMoney"><svg class="i i-sm" aria-hidden="true"><use href="#i-arrow-up-right"/></svg>Money</a>
+        <input class="tool-note" data-tool="finances" placeholder="quick note…" aria-label="Finances quick note" />
+      </div>
+    </div>
+
+    <div class="card tool">
+      <h3><svg class="i c-blue" aria-hidden="true"><use href="#i-activity"/></svg>Fitness / Running / Gym <span class="pill green">active</span></h3>
+      <p class="next"><b>Next:</b> lock a class-week workout schedule (3×) before Jul 20.</p>
+      <div class="foot">
+        <a href="obsidian://open?vault=Lozano%27s%20Vault&file=03%20Areas%2FBody"><svg class="i i-sm" aria-hidden="true"><use href="#i-arrow-up-right"/></svg>Body</a>
+        <input class="tool-note" data-tool="fitness" placeholder="quick note…" aria-label="Fitness quick note" />
+      </div>
+    </div>
+
+    <div class="card tool">
+      <h3><svg class="i c-amber" aria-hidden="true"><use href="#i-grad-cap"/></svg>Dental School Admin <span class="pill green">active</span></h3>
+      <p class="next"><b>Next:</b> exam slot in calendar (Mon 8–9am, Jul 20 – Sep 14) + orientation logistics.</p>
+      <div class="foot">
+        <a href="obsidian://open?vault=Lozano%27s%20Vault&file=03%20Areas%2FDental%20School"><svg class="i i-sm" aria-hidden="true"><use href="#i-arrow-up-right"/></svg>Dental School</a>
+        <input class="tool-note" data-tool="school-admin" placeholder="quick note…" aria-label="School admin quick note" />
+      </div>
+    </div>
+
+    <div class="card tool">
+      <h3><svg class="i c-blue" aria-hidden="true"><use href="#i-wrench"/></svg>Personal Projects <span class="pill blue">governed</span></h3>
+      <p class="next"><b>Next:</b> one step on P1 per project block — stack pinned above.</p>
+      <div class="foot">
+        <a href="obsidian://open?vault=Lozano%27s%20Vault&file=00%20Dashboard%2FActive%20Projects"><svg class="i i-sm" aria-hidden="true"><use href="#i-arrow-up-right"/></svg>Active Projects</a>
+        <input class="tool-note" data-tool="projects" placeholder="quick note…" aria-label="Projects quick note" />
+      </div>
+    </div>
+
+    <div class="card tool">
+      <h3><svg class="i c-coral" aria-hidden="true"><use href="#i-tooth"/></svg>Anillo / Future Practice <span class="pill coral">family</span></h3>
+      <p class="next"><b>Next:</b> ask the team their single biggest content struggle (feeds P2).</p>
+      <div class="foot">
+        <a href="obsidian://open?vault=Lozano%27s%20Vault&file=03%20Areas%2FAnillo%20Dentistry"><svg class="i i-sm" aria-hidden="true"><use href="#i-arrow-up-right"/></svg>Anillo Dentistry</a>
+        <input class="tool-note" data-tool="anillo" placeholder="quick note…" aria-label="Anillo quick note" />
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- Scratchpad (persists in this browser) -->
+<section>
+  <h2>Scratchpad <span class="sub">quick ideas, saved locally; move keepers to Capture</span></h2>
+  <textarea id="scratch" aria-label="Scratchpad" placeholder="Dump ideas here. Saved automatically in this browser. Move anything worth keeping into the Capture inbox."></textarea>
+  <div class="pad-actions">
+    <button class="btn mini-copy" id="copyScratch"><svg class="i" aria-hidden="true"><use href="#i-clipboard"/></svg><span data-label>Copy all</span></button>
+    <button class="btn" id="clearScratch"><svg class="i c-coral" aria-hidden="true"><use href="#i-trash"/></svg><span data-label>Clear</span></button>
+  </div>
+</section>
+
+<footer>
+  <span class="brand" id="footerIdentity"></span><br />
+  Local file · data lives in this browser's localStorage · deep notes live in Obsidian<br />
+  Last updated: <span id="lastUpdated"></span>
+</footer>
+
+<!-- ════════════════════════════════════════════════════════════════
+     ZONE: LOCAL STORAGE + PROMPTS — all behavior lives here.
+     localStorage keys (don't rename — renaming loses saved data):
+       dlos.daily3 · dlos.scratch · dlos.beforeSchool · dlos.lifetools
+       · dlos.wellness · dlos.history (visit streak / since-yesterday)
+     ════════════════════════════════════════════════════════════════ -->
+<script>
+(function () {
+  var LS = { daily: 'dlos.daily3', scratch: 'dlos.scratch', check: 'dlos.beforeSchool', tools: 'dlos.lifetools', well: 'dlos.wellness', hist: 'dlos.history' };
+
+  /* Safe storage wrapper — some contexts (sandboxed previews, strict
+     privacy settings on local files) throw on localStorage access.
+     Fall back to in-memory so the page ALWAYS renders; persistence
+     just turns off in those contexts. */
+  var store = (function () {
+    try {
+      var t = '__dlos_test__';
+      window.localStorage.setItem(t, '1');
+      window.localStorage.removeItem(t);
+      return {
+        get: function (k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } },
+        set: function (k, v) { try { window.localStorage.setItem(k, v); } catch (e) {} }
+      };
+    } catch (e) {
+      var mem = {};
+      return {
+        get: function (k) { return Object.prototype.hasOwnProperty.call(mem, k) ? mem[k] : null; },
+        set: function (k, v) { mem[k] = String(v); }
+      };
+    }
+  })();
+  function dstr(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function todayStr() { return dstr(new Date()); }
+  function yesterdayStr() { var d = new Date(); d.setDate(d.getDate() - 1); return dstr(d); }
+
+  /* ---- welcome header (reads CONFIG zone) ---- */
+  var hour = new Date().getHours();
+  var greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  document.getElementById('greeting').textContent = greet + ', ' + CONFIG.firstName + '.';
+  document.getElementById('identity').textContent = CONFIG.identity;
+  document.getElementById('footerIdentity').textContent = CONFIG.identity;
+  document.getElementById('subtitle').textContent = CONFIG.subtitle;
+  document.getElementById('today').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  document.getElementById('lastUpdated').textContent = document.lastModified ? new Date(document.lastModified).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+
+  /* ---- since yesterday (key: dlos.history) ----
+     v0: visit streak + yesterday's Big 3 / water, all from localStorage.
+     v1 (Phase 3): vault/Canvas deltas — new notes, shakedowns, due cards. */
+  (function () {
+    var hist;
+    try { hist = JSON.parse(store.get(LS.hist) || 'null'); } catch (e) { hist = null; }
+    if (!hist || hist.date !== todayStr()) {
+      // first open today → roll the log forward
+      var prev = { big3: null, water: null };
+      try {
+        var d3 = JSON.parse(store.get(LS.daily) || 'null');
+        if (d3 && hist && d3.date === hist.date) prev.big3 = d3.items.filter(function (i) { return i.d; }).length;
+      } catch (e) {}
+      try {
+        var w = JSON.parse(store.get(LS.well) || 'null');
+        if (w && hist && w.date === hist.date) prev.water = w.water;
+      } catch (e) {}
+      var streak = (hist && hist.date === yesterdayStr()) ? (hist.streak || 1) + 1 : 1;
+      hist = { date: todayStr(), streak: streak, prev: prev };
+      store.set(LS.hist, JSON.stringify(hist));
+    }
+    var bits = ['Day <b>' + hist.streak + '</b> streak'];
+    if (hist.prev && hist.prev.big3 !== null) bits.push('yesterday: Big 3 <b>' + hist.prev.big3 + '/3</b>');
+    if (hist.prev && hist.prev.water !== null) bits.push('water <b>' + hist.prev.water + '</b> glasses');
+    var el = document.getElementById('sinceLine');
+    el.innerHTML = bits.join(' · ');
+    el.hidden = false;
+  })();
+
+  /* ---- quick launch dock (renders from CONFIG.dock) ---- */
+  (function () {
+    var grid = document.getElementById('dockGrid');
+    CONFIG.dock.forEach(function (d) {
+      var a = document.createElement('a');
+      a.className = 'dock'; a.href = d.url; a.target = '_blank'; a.rel = 'noopener';
+      a.innerHTML = '<svg class="i ' + d.color + '" aria-hidden="true"><use href="#' + d.icon + '"/></svg><span class="lbl"></span>';
+      a.querySelector('.lbl').textContent = d.label;
+      grid.appendChild(a);
+    });
+  })();
+
+  /* ---- exam countdown ---- */
+  var examParts = CONFIG.nextExam.date.split('-');
+  var examDate = new Date(+examParts[0], +examParts[1] - 1, +examParts[2]);
+  var days = Math.ceil((examDate - new Date()) / 86400000);
+  var shortLabel = CONFIG.nextExam.label.split(' ').slice(0, 2).join(' ');
+  var cdNum = document.getElementById('cdNum'), cdLabel = document.getElementById('cdLabel');
+  if (days > 1) { cdNum.textContent = days; cdLabel.textContent = 'days until ' + shortLabel + ' · ' + examDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
+  else if (days === 1) { cdNum.textContent = '1'; cdLabel.textContent = shortLabel + ' is tomorrow'; }
+  else if (days === 0) { cdNum.textContent = '0'; cdLabel.textContent = shortLabel + ' is today'; }
+  else { cdNum.textContent = '·'; cdLabel.textContent = 'in session — run the loop'; }
+  document.getElementById('examLabel').textContent = CONFIG.nextExam.label;
+  document.getElementById('examDetail').textContent = CONFIG.nextExam.detail + ' · ' + examDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  document.getElementById('examSeason').textContent = CONFIG.examSeason;
+  document.getElementById('examPill').textContent = days > 0 ? days + 'd out' : 'live';
+
+  /* ---- wellness (key: dlos.wellness) ---- */
+  document.getElementById('wSleep').textContent = CONFIG.wellness.sleep;
+  document.getElementById('wSteps').textContent = CONFIG.wellness.steps;
+  document.getElementById('wSun').textContent = CONFIG.wellness.sun;
+  document.getElementById('wWeather').textContent = CONFIG.wellness.weather;
+  var wl;
+  try { wl = JSON.parse(store.get(LS.well) || 'null'); } catch (e) { wl = null; }
+  if (!wl || wl.date !== todayStr()) wl = { date: todayStr(), water: 0, workout: false, mood: null };
+  var workoutBtn = document.getElementById('workoutBtn');
+  function renderWell() {
+    document.getElementById('wWater').textContent = wl.water;
+    workoutBtn.textContent = wl.workout ? 'Done ✓' : 'Not yet';
+    workoutBtn.classList.toggle('on', wl.workout);
+    document.querySelectorAll('.mood').forEach(function (b) {
+      b.classList.toggle('sel', wl.mood !== null && +b.dataset.mood === wl.mood);
+    });
+  }
+  function saveWell() { store.set(LS.well, JSON.stringify(wl)); renderWell(); }
+  document.getElementById('waterPlus').addEventListener('click', function () { wl.water++; saveWell(); });
+  document.getElementById('waterMinus').addEventListener('click', function () { if (wl.water > 0) wl.water--; saveWell(); });
+  workoutBtn.addEventListener('click', function () { wl.workout = !wl.workout; saveWell(); });
+  document.querySelectorAll('.mood').forEach(function (b) {
+    b.addEventListener('click', function () { wl.mood = wl.mood === +b.dataset.mood ? null : +b.dataset.mood; saveWell(); });
+  });
+  renderWell();
+
+  /* ---- daily growth: six slots, type + content rotate by day ----
+     Slot 1 Dental (5 types) · 2 Vocabulary · 3 Body (stretch/tips) ·
+     4 Mind (principle/mental model) · 5 Fun feed · 6 Future You.  */
+  var vocabList = [
+    { w: "Cariogenic", pr: "kair-ee-oh-JEN-ik", def: "Producing or promoting tooth decay.", ex: "Frequent sipping makes a drink far more cariogenic than the same sugar taken at once." },
+    { w: "Iatrogenic", pr: "eye-at-roh-JEN-ik", def: "Harm caused by the clinician or the treatment itself.", ex: "An over-contoured crown margin is an iatrogenic perio problem." },
+    { w: "Sine qua non", pr: "SEE-nay kwah NON (Latin)", def: "An absolutely essential condition.", ex: "Isolation is the sine qua non of predictable bonding." },
+    { w: "Xerostomia", pr: "zeer-oh-STOH-mee-ah", def: "Dry mouth from reduced salivary flow.", ex: "Polypharmacy in older patients often presents first as xerostomia and root caries." },
+    { w: "Equanimity", pr: "ek-wah-NIM-ih-tee", def: "Calmness and composure, especially under stress.", ex: "Osler called equanimity the physician's chief virtue — it holds for a shaking hand too." },
+    { w: "Trismus", pr: "TRIZ-mus", def: "Restricted mouth opening, often from masticatory muscle spasm.", ex: "Post-injection trismus can follow trauma to the medial pterygoid." },
+    { w: "Heuristic", pr: "hyoo-RIS-tik", def: "A practical mental shortcut for fast decisions.", ex: "\"When in doubt, don't numb it out\" is a heuristic, not a rule." },
+    { w: "Friable", pr: "FRY-ah-bul", def: "Tissue that crumbles or bleeds easily.", ex: "Granulation tissue in the socket was friable and bled on gentle curettage." },
+    { w: "Circadian", pr: "sir-KAY-dee-an", def: "Relating to the body's 24-hour biological cycle.", ex: "Guarding your circadian rhythm is a study strategy, not a luxury." }
+  ];
+  function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+  var doy = Math.floor((new Date() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
+  var growthOffset = 0;
+  function slot(k, b, kickerIcon, kickerColor, kickerText, bodyHTML) {
+    document.getElementById(k).innerHTML = '<svg class="i i-sm" aria-hidden="true"><use href="#' + kickerIcon + '"/></svg>' + esc(kickerText);
+    document.getElementById(k).className = 'kicker ' + kickerColor;
+    document.getElementById(b).innerHTML = bodyHTML;
+  }
+  function buildGrowth() {
+    var o = doy + growthOffset;
+    function pick(arr, salt) { return arr[(o + (salt || 0)) % arr.length]; }
+
+    /* slot 1 — dental, rotating type */
+    var dt = o % 5;
+    if (dt === 0) slot('k1', 'b1', 'i-gem', 'c-cream', 'Dental Pearl', '<p>' + esc(pick(GROWTH.pearls)) + '</p>');
+    else if (dt === 1) { var ins = pick(GROWTH.instruments); slot('k1', 'b1', 'i-wrench', 'c-cream', "Today's Instrument", '<div class="big">' + esc(ins.n) + '</div><p class="dim" style="margin-top:6px">' + esc(ins.t) + '</p>'); }
+    else if (dt === 2) { var mat = pick(GROWTH.materials); slot('k1', 'b1', 'i-layers', 'c-cream', "Today's Material", '<div class="big">' + esc(mat.n) + '</div><p class="dim" style="margin-top:6px">' + esc(mat.t) + '</p>'); }
+    else if (dt === 3) { var bq = pick(GROWTH.boardQ); slot('k1', 'b1', 'i-target', 'c-cream', 'Board Question', '<p>' + esc(bq.q) + '</p><details><summary>Reveal answer</summary><p class="answer">' + esc(bq.a) + '</p></details>'); }
+    else slot('k1', 'b1', 'i-tooth', 'c-cream', 'Clinical Tip', '<p>' + esc(pick(GROWTH.clinTips)) + '</p>');
+
+    /* slot 2 — vocabulary (always) */
+    var v = pick(vocabList, 3);
+    slot('k2', 'b2', 'i-book', 'c-blue', 'Vocabulary',
+      '<div class="big">' + esc(v.w) + '</div><div class="dim" style="font-size:12px">' + esc(v.pr) + '</div>' +
+      '<p style="margin-top:6px">' + esc(v.def) + '</p><p class="dim" style="margin-top:6px; font-style:italic">"' + esc(v.ex) + '"</p>');
+
+    /* slot 3 — body: stretch on even days, body tip on odd */
+    if (o % 2 === 0) {
+      var s = pick(GROWTH.stretch, 2);
+      slot('k3', 'b3', 'i-move', 'c-green', 'Stretch of the Day',
+        '<div class="big">' + esc(s.name) + '</div><div class="dim" style="font-size:12.5px; margin-top:4px">' + esc(s.target) + ' · ' + esc(s.dur) + '</div><p class="dim" style="margin-top:8px">' + esc(s.why) + '</p>');
+    } else {
+      var bt = pick(GROWTH.bodyTips, 2);
+      slot('k3', 'b3', 'i-activity', 'c-green', bt.k + ' Tip', '<p>' + esc(bt.t) + '</p>');
+    }
+
+    /* slot 4 — mind: principle on even days, mental model on odd */
+    if (o % 2 === 0) {
+      slot('k4', 'b4', 'i-sparkle', 'c-amber', 'Principle', '<p class="quote-text">"' + esc(pick(GROWTH.quotes, 1)) + '"</p>');
+    } else {
+      var mm = pick(GROWTH.mentalModels, 1);
+      slot('k4', 'b4', 'i-sparkle', 'c-amber', 'Mental Model', '<div class="big">' + esc(mm.n) + '</div><p class="dim" style="margin-top:6px">' + esc(mm.t) + '</p>');
+    }
+
+    /* slot 5 — fun feed (label comes from the entry) */
+    var f = pick(GROWTH.fun, 4);
+    slot('k5', 'b5', 'i-sun', 'c-teal', "Today's " + f.k, '<p>' + esc(f.t) + '</p>');
+
+    /* slot 6 — future you (always) */
+    slot('k6', 'b6', 'i-compass', 'c-coral', 'Future You', '<p class="quote-text">' + esc(pick(GROWTH.future, 5)) + '</p>');
+  }
+  document.getElementById('shuffleGrowth').addEventListener('click', function () {
+    growthOffset = Math.floor(Math.random() * 97) + 1;
+    buildGrowth();
+  });
+  buildGrowth();
+
+  /* ---- PROMPTS text (edit freely) ---- */
+  var prompts = {
+    daily:
+'Act as my Chief of Staff for today\'s startup (~5 minutes, keep it short).\n' +
+'1. Read "00 Dashboard/Master Dashboard" and "00 Dashboard/Active Projects" in my vault.\n' +
+'2. Check "01 Inbox/Capture" — list anything unprocessed and say where each item should go (file / act / trash). Don\'t move anything without my confirmation.\n' +
+'3. Remind me of the next exam or quiz from "03 Areas/Dental School".\n' +
+'4. Ask me for today\'s Big 3, then give me the single most valuable next action on P1 (Dental Study Software) if I have project time today.\n' +
+'Output: a tight morning brief, not an essay.',
+    shakedown:
+'Run a Lecture Shakedown on the file I give you, following my standard in "07 Templates/Shakedown.md" and "04 Resources/Knowledge Workflow.md".\n' +
+'Goal: ONE distilled note that makes the original lecture file almost unnecessary.\n' +
+'1. First give me a 3–5 sentence summary and ask what to emphasize or skip.\n' +
+'2. Then write the Shakedown note (into "03 Areas/Dental School" if course-specific, else "04 Resources"): executive summary, core principles in plain words, operational reference (do-this-when), personal context, action items, connections to related notes, and the source path.\n' +
+'3. Flag anything likely to be tested, and list 5–10 candidate Anki card ideas at the end.\n' +
+'Lecture file: [paste path or drag the file here]',
+    anki:
+'Turn my missed questions into Anki cards.\n' +
+'Here is what I got wrong or felt shaky on: [paste misses here]\n' +
+'1. For each miss write 1–3 cards: cloze for pure facts, basic Q→A for concepts, plus one "why / mechanism" card when the miss was conceptual.\n' +
+'2. One fact per card. No card may test two things. Keep answers minimal.\n' +
+'3. Output paste-ready plain text, grouped by topic with a suggested deck name: basic cards as front[TAB]back one per line; cloze cards in {{c1::...}} format.\n' +
+'4. End with a 2-line pattern check: were these recall, application, or careless misses — and what should I change in how I study this topic?'
+  };
+  document.getElementById('pv-daily').textContent = prompts.daily;
+  document.getElementById('pv-shakedown').textContent = prompts.shakedown;
+  document.getElementById('pv-anki').textContent = prompts.anki;
+
+  /* ---- copy helper ---- */
+  function copyText(text, btn) {
+    var lbl = btn.querySelector('[data-label]') || btn;
+    function ok() {
+      var old = lbl.textContent;
+      btn.classList.add('copied');
+      lbl.textContent = 'Copied ✓';
+      setTimeout(function () { btn.classList.remove('copied'); lbl.textContent = old; }, 1600);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(ok, function () { fallback(); });
+    } else { fallback(); }
+    function fallback() {
+      var ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); ok(); } catch (e) { alert('Copy failed — select and copy from the preview instead.'); }
+      document.body.removeChild(ta);
+    }
+  }
+  document.querySelectorAll('[data-prompt]').forEach(function (btn) {
+    btn.addEventListener('click', function () { copyText(prompts[btn.dataset.prompt], btn); });
+  });
+  document.querySelectorAll('.mini-copy[data-copy]').forEach(function (btn) {
+    btn.addEventListener('click', function () { copyText(btn.dataset.copy, btn); });
+  });
+
+  /* ---- Today's Big 3 (key: dlos.daily3) ---- */
+  var rows = Array.prototype.slice.call(document.querySelectorAll('.daily3 .row'));
+  var staleNote = document.getElementById('staleNote');
+  function loadDaily() {
+    var data;
+    try { data = JSON.parse(store.get(LS.daily) || 'null'); } catch (e) { data = null; }
+    if (!data) data = { date: todayStr(), items: [{ t: '', d: false }, { t: '', d: false }, { t: '', d: false }] };
+    if (data.date !== todayStr()) {
+      staleNote.style.display = 'block';
+      document.getElementById('staleDate').textContent = data.date;
+    }
+    rows.forEach(function (row, i) {
+      row.querySelector('input[type="text"]').value = data.items[i].t;
+      row.querySelector('input[type="checkbox"]').checked = data.items[i].d;
+      row.classList.toggle('done', data.items[i].d);
+    });
+    return data;
+  }
+  var daily = loadDaily();
+  function saveDaily() {
+    daily.items = rows.map(function (row) {
+      return { t: row.querySelector('input[type="text"]').value, d: row.querySelector('input[type="checkbox"]').checked };
+    });
+    store.set(LS.daily, JSON.stringify(daily));
+    rows.forEach(function (row, i) { row.classList.toggle('done', daily.items[i].d); });
+  }
+  rows.forEach(function (row) {
+    row.addEventListener('input', function () {
+      if (daily.date !== todayStr()) { daily.date = todayStr(); staleNote.style.display = 'none'; }
+      saveDaily();
+    });
+  });
+  document.getElementById('resetDaily').addEventListener('click', function () {
+    daily = { date: todayStr(), items: [{ t: '', d: false }, { t: '', d: false }, { t: '', d: false }] };
+    store.set(LS.daily, JSON.stringify(daily));
+    rows.forEach(function (row) {
+      row.querySelector('input[type="text"]').value = '';
+      row.querySelector('input[type="checkbox"]').checked = false;
+      row.classList.remove('done');
+    });
+    staleNote.style.display = 'none';
+  });
+
+  /* ---- Before-school checklist (key: dlos.beforeSchool) ---- */
+  var items = [
+    'Empty the Capture inbox to zero (file, act, or trash every line)',
+    'Clear ~/Intake/Drop and confirm the intake system files things end-to-end',
+    'Dry-run the full study loop on one sample/orientation lecture: Shakedown → Anki cards',
+    'Set up Anki decks + AnkiWeb sync on laptop and phone',
+    'Put the Summer 2026 exam schedule in your calendar (Mon 8–9am, Jul 20 – Sep 14)',
+    'Do one Weekly CEO Review to set the baseline week',
+    'Bookmark this dashboard (or add to Dock) so it opens in one click',
+    'Decide your default study spot + pack the bag the night before Day 1'
+  ];
+  var checkState;
+  try { checkState = JSON.parse(store.get(LS.check) || '{}'); } catch (e) { checkState = {}; }
+  var listEl = document.getElementById('checkList');
+  items.forEach(function (text, i) {
+    var row = document.createElement('div'); row.className = 'row' + (checkState[i] ? ' done' : '');
+    var cb = document.createElement('input'); cb.type = 'checkbox'; cb.id = 'ck' + i; cb.checked = !!checkState[i];
+    var lb = document.createElement('label'); lb.htmlFor = 'ck' + i; lb.textContent = text;
+    cb.addEventListener('change', function () {
+      checkState[i] = cb.checked;
+      store.set(LS.check, JSON.stringify(checkState));
+      row.classList.toggle('done', cb.checked);
+      renderProgress();
+    });
+    row.appendChild(cb); row.appendChild(lb); listEl.appendChild(row);
+  });
+  function renderProgress() {
+    var done = items.filter(function (_, i) { return checkState[i]; }).length;
+    document.getElementById('checkProgress').textContent = done + ' / ' + items.length + ' done' + (done === items.length ? ' — ready for Day 1 🎉' : '');
+    var C = 113.1; /* 2πr, r=18 — keep in sync with the ring SVG */
+    document.getElementById('ringFg').style.strokeDashoffset = (C * (1 - done / items.length)).toFixed(1);
+  }
+  renderProgress();
+
+  /* ---- Life Tools notes (key: dlos.lifetools) ---- */
+  var toolNotes;
+  try { toolNotes = JSON.parse(store.get(LS.tools) || '{}'); } catch (e) { toolNotes = {}; }
+  document.querySelectorAll('.tool-note').forEach(function (inp) {
+    inp.value = toolNotes[inp.dataset.tool] || '';
+    inp.addEventListener('input', function () {
+      toolNotes[inp.dataset.tool] = inp.value;
+      store.set(LS.tools, JSON.stringify(toolNotes));
+    });
+  });
+
+  /* ---- Scratchpad (key: dlos.scratch) ---- */
+  var pad = document.getElementById('scratch');
+  pad.value = store.get(LS.scratch) || '';
+  pad.addEventListener('input', function () { store.set(LS.scratch, pad.value); });
+  document.getElementById('copyScratch').addEventListener('click', function () { copyText(pad.value, this); });
+  document.getElementById('clearScratch').addEventListener('click', function () {
+    if (pad.value && !confirm('Clear the scratchpad? Anything not moved to Capture is gone.')) return;
+    pad.value = ''; store.set(LS.scratch, '');
+  });
+})();
+</script>
+</body>
+</html>
